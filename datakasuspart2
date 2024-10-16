@@ -1,0 +1,109 @@
+# Instal pustaka tambahan jika diperlukan
+!pip install pandas scikit-learn openpyxl matplotlib seaborn
+
+# Import pustaka yang diperlukan
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
+import joblib
+
+# 1. Muat Data
+data = pd.read_excel('/content/dataKasus-1.xlsx')
+
+# Tampilkan beberapa baris pertama untuk inspeksi awal
+print("Lima baris pertama data:")
+print(data.head())
+
+# Cek nama kolom dalam dataset
+print("\nKolom dalam dataset:", data.columns)
+
+# 2. Tentukan Kolom Target
+target_column = 'PE/Non PE'  # Disesuaikan dengan nama kolom target
+
+# Jika kolom target tidak ditemukan, tampilkan pesan dan hentikan eksekusi
+if target_column not in data.columns:
+    raise ValueError(f"Kolom target '{target_column}' tidak ditemukan. "
+                     f"Pastikan nama kolom benar. Kolom tersedia: {list(data.columns)}")
+
+# 3. Eksplorasi Data (Data Understanding)
+print("\nInfo data:")
+print(data.info())
+
+print("\nStatistik deskriptif:")
+print(data.describe())
+
+print("\nCek nilai kosong per kolom:")
+print(data.isnull().sum())
+
+# Visualisasi distribusi fitur numerik
+data.hist(bins=20, figsize=(15, 10))
+plt.show()
+
+# 4. Data Preparation (Pembersihan dan Transformasi)
+# Pisahkan kolom numerik dan kategorikal
+numerical_cols = data.select_dtypes(include=['float64', 'int64']).columns
+categorical_cols = data.select_dtypes(include=['object']).columns
+
+# Isi nilai kosong pada kolom numerik dengan median
+data[numerical_cols] = data[numerical_cols].fillna(data[numerical_cols].median())
+
+# Isi nilai kosong pada kolom kategorikal dengan 'unknown'
+data[categorical_cols] = data[categorical_cols].fillna('unknown')
+
+# Pastikan semua data dalam kolom kategorikal berupa string
+for col in categorical_cols:
+    data[col] = data[col].astype(str)
+
+# Konversi kolom kategorikal menjadi angka dengan Label Encoding
+le = LabelEncoder()
+for col in categorical_cols:
+    data[col] = le.fit_transform(data[col])
+
+# Pastikan tidak ada nilai kosong setelah pembersihan
+print("\nCek ulang nilai kosong:")
+print(data.isnull().sum())
+
+# 5. Pisahkan Fitur (X) dan Target (y)
+X = data.drop(target_column, axis=1)
+y = data[target_column]
+
+# Bagi data menjadi data latih dan data uji (70% latih, 30% uji)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Standarisasi fitur numerik
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# 6. Modeling (Pembuatan Model)
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# 7. Evaluasi Model
+y_pred = model.predict(X_test)
+
+print("\nConfusion Matrix:")
+print(confusion_matrix(y_test, y_pred))
+
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+# Visualisasi Confusion Matrix
+sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, cmap='Blues', fmt='g')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.show()
+
+# 8. Deployment (Simpan Model)
+# Simpan model ke file
+joblib.dump(model, 'random_forest_model.pkl')
+
+# Contoh penggunaan model yang disimpan
+loaded_model = joblib.load('random_forest_model.pkl')
+sample_prediction = loaded_model.predict(X_test[:5])
+print("\nSample Prediction:", sample_prediction)
